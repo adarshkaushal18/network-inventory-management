@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import MainLayout from "./MainLayout";
 import { updateDevice } from "../api/device";
+import { scanDevices } from "../api/scanner";
 import toast from "react-hot-toast";
-import { TextField, Typography, Paper, MenuItem, Button } from "@mui/material";
+import { TextField, Typography, Paper, MenuItem, Button, Stack } from "@mui/material";
 
 const EditDeviceForm = ({ allDevices, setAllDevices, currentUser }) => {
     // Component logic here
@@ -33,6 +34,34 @@ const EditDeviceForm = ({ allDevices, setAllDevices, currentUser }) => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prevData) => ({ ...prevData, [name]: value }));
+    };
+
+    const handleScanDevice = async () => {
+        try {
+        const devices = await scanDevices("192.168.1.0/24"); // change CIDR as needed
+        const found = devices.responders.find((d) => d.ip === formData.ip);
+
+        if (found) {
+            setFormData((prev) => ({
+            ...prev,
+            ip: found.ip || prev.ip,
+            componentName: found.hostname || prev.componentName,
+            location: found.location || prev.location,
+            status: "active", // ✅ mark active if found
+            }));
+            toast.success("Device scanned & updated!");
+        } else {
+            // not found in scan -> mark inactive
+            setFormData((prev) => ({
+            ...prev,
+            status: "inactive",
+            }));
+            toast.error("Device not found on network. Status set to Inactive.");
+        }
+        } catch (err) {
+        console.error(err);
+        toast.error("Failed to scan device");
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -73,6 +102,12 @@ const EditDeviceForm = ({ allDevices, setAllDevices, currentUser }) => {
                 <Typography variant="h6" mb={2}>
                     Edit Device
                 </Typography>
+
+                <Stack spacing={2}>
+                    <Button variant="outlined" onClick={handleScanDevice}>
+                        🔍 Scan Device & Update Status
+                    </Button>
+                </Stack>
 
                 <form onSubmit={handleSubmit}>
                     <TextField
